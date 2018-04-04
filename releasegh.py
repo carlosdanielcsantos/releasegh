@@ -9,6 +9,7 @@ from rst2ghmd import rst2ghmd
 TRASH_FILE = ".releasegh_trash"
 WHATSNEW_FILE = 'doc/whats_new.rst'
 
+
 class Version:
     def __init__(self, version_string):
         self.major, self.minor, self.patch = \
@@ -44,16 +45,54 @@ def git_branch():
 
 
 def update_whatsnew(version):
-    r = subprocess.run(["sed 's/x\.x\.x/{0}.{1}.{2}/;"
-                        "s/x_x_x/{0}_{1}_{2}/' {3} > {4}".
-                       format(version.major,
-                              version.minor,
-                              version.patch,
-                              WHATSNEW_FILE,
-                              TRASH_FILE)],
+    subprocess.run(["sed 's/x\.x\.x/{0}.{1}.{2}/;"
+                    "s/x_x_x/{0}_{1}_{2}/' {3} > {4}".
+                   format(version.major,
+                          version.minor,
+                          version.patch,
+                          WHATSNEW_FILE,
+                          TRASH_FILE)],
+                   shell=True,
+                   universal_newlines=True,
+                   stdout=subprocess.PIPE)
+
+
+def whatsnew_diff():
+    r = subprocess.run("diff {} {}".format(WHATSNEW_FILE, TRASH_FILE),
                        shell=True,
                        universal_newlines=True,
                        stdout=subprocess.PIPE)
+
+    return r.stdout.strip()
+
+
+def get_latest_release_md():
+    description = ''.join(rst2ghmd(TRASH_FILE,
+                          n_releases=1,
+                          min_header_level=0,
+                          exclude_min_header=True))
+
+    return description
+
+
+def push_before_release(version, dry_run):
+    commands = [
+        "cp {} {}".format(TRASH_FILE, WHATSNEW_FILE),
+        "git add {}".format(WHATSNEW_FILE),
+        "git commit -m 'Release {}'".format(version),
+        "git push"
+    ]
+
+    if dry_run:
+        print("Would call: ")
+        [print(c) for c in commands]
+
+    else:
+        [subprocess.run(c, shell=True) for c in commands]
+
+
+def wipe_trash():
+    subprocess.run("rm {}".format(TRASH_FILE), shell=True)
 
 
 def releasegh(increment, dry_run=True):
@@ -80,19 +119,14 @@ def releasegh(increment, dry_run=True):
 
     update_whatsnew(version)
 
-    diff = subprocess.run("diff {} {}".format(WHATSNEW_FILE, TRASH_FILE),
-                          shell=True,
-                          universal_newlines=True,
-                          stdout=subprocess.PIPE)
-
     print("\n\nWhatsnew diff =")
-    print(diff.stdout.strip())
-    description = ''.join(rst2ghmd(TRASH_FILE,
-                          n_releases=1,
-                          min_header_level=0,
-                          exclude_min_header=True))
+    print(whatsnew_diff())
+
+    description = get_latest_release_md()
     print("\n\nDescription =")
     print(description)
+
+    push_before_release(version, dry_run)
 
     payload = {
       "tag_name": str(version),
@@ -114,7 +148,9 @@ def releasegh(increment, dry_run=True):
             raise requests.HTTPError("Error creating new release: " +
                                      str(r.status_code))
 
+    wipe_trash()
 
+    
 def cli():
     parser = argparse.\
         ArgumentParser(description='make a release to Github',
