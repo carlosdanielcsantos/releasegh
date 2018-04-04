@@ -45,16 +45,27 @@ def git_branch():
 
 
 def update_whatsnew(version):
-    subprocess.run(["sed 's/x\.x\.x/{0}.{1}.{2}/;"
-                    "s/x_x_x/{0}_{1}_{2}/' {3} > {4}".
-                   format(version.major,
-                          version.minor,
-                          version.patch,
-                          WHATSNEW_FILE,
-                          TRASH_FILE)],
-                   shell=True,
-                   universal_newlines=True,
-                   stdout=subprocess.PIPE)
+    with open(WHATSNEW_FILE, 'r') as fd:
+        lines = fd.readlines()
+
+    i_ref = [l.find('x_x_x') > -1 for l in lines].index(True)
+
+    lines[i_ref] = lines[i_ref].replace('x_x_x',
+                                        '{0}_{1}_{2}'.format(version.major,
+                                                             version.minor,
+                                                             version.patch))
+
+    i_title = [l.find('x.x.x') > -1 for l in lines].index(True)
+
+    lines[i_title] = lines[i_title].replace('x.x.x',
+                                            '{0}.{1}.{2}'.format(version.major,
+                                                                 version.minor,
+                                                                 version.patch))
+
+    lines[i_title + 1] = '=' * (len(lines[i_title]) - 1) + '\n'
+
+    with open(TRASH_FILE, 'w') as fd:
+        fd.writelines(lines)
 
 
 def whatsnew_diff():
@@ -150,7 +161,7 @@ def releasegh(increment, dry_run=True):
 
     wipe_trash()
 
-    
+
 def cli():
     parser = argparse.\
         ArgumentParser(description='make a release to Github',
