@@ -11,16 +11,26 @@ WHATSNEW_FILE = 'doc/whats_new.rst'
 
 
 class Version:
-    def __init__(self, version_string):
-        self.major, self.minor, self.patch = \
-            (int(x) for x in version_string.strip('v').split('.'))
+    def __init__(self, version_string, names=('major', 'minor', 'patch')):
+        self.names = names
+
+        self.__version = [int(x) for x in version_string.strip('v').split('.')]
+
+        if len(self.names) != len(self.__version):
+            raise ValueError("names size and version string must match")
+
+    def __getattr__(self, item):
+        if item in self.names:
+            return self.__version[self.names.index(item)]
 
     def bump(self, bump_type):
-        new = getattr(self, bump_type) + 1
-        setattr(self, bump_type, new)
+        i = self.names.index(bump_type)
+        self.__version[i] += 1
+        self.__version[(i + 1):] = [0]*len(self.__version[(i + 1):])
 
     def __str__(self):
-        return 'v{}.{}.{}'.format(self.major, self.minor, self.patch)
+        return ('v' + '.'.join(['{}'] * len(self.__version))
+                ).format(*self.__version)
 
 
 def compose_url(sufix, token):
