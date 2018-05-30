@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='releasegh',
-    version='0.1.2',
+    version='0.1.3',
     py_modules=['releasegh'],
     author = 'Carlos Daniel Santos',
     description = 'Bump and release to Github',
